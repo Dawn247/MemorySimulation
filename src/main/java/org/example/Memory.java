@@ -1,42 +1,60 @@
 package org.example;
 
 public class Memory {
-    final int size;
-
-    /**
-     * Array of frames’ occupation statuses
-     */
-    private final boolean[] frames;
+    private final int memorySize;
+    private final MemoryFrame[] frames;
+    private int allocationHead;
 
     /**
      * Constructs a representation of the physical memory, consisting of a given, power-of-two-amount of pages.
+     * Stores the set of allocated frames as a HashMap between the frame id and its allocation information.
      *
-     * @param size bits needed to identify a frame.
+     * @param memorySize bits needed to identify a frame.
      */
-    public Memory(int size) {
-        if (size <= 0 || size > 31) throw new IllegalArgumentException("Invalid memory size");
-        this.size = size;
-        this.frames = new boolean[1<<size];
+    public Memory(int memorySize) {
+        if (memorySize <= 0 || memorySize > 31) throw new IllegalArgumentException("Invalid memory size");
+        this.memorySize = memorySize;
+        this.allocationHead = 0;
+        this.frames = new MemoryFrame[1<<memorySize];
     }
 
-    public synchronized int getFrame() {
-        int i = 0;
-        while (frames[i]) i++;
-        frames[i] = true;
+    /**
+     * Allocates a frame for a thread, using the clock replacement algorithm on a global scope.
+     *
+     *  @param tid thread identification.
+     */
+    public synchronized int getFrame(int tid) {
+        MemoryFrame f;
+        int i;
+        for (i = allocationHead; ; i = (i + 1) % (1 << memorySize)) {
+            f = frames[i];
+            if (frames[i] == null) break;
+            if (f.CLOCK_SECOND_CHANCE()) frames[i] = new MemoryFrame(f.ALLOCATOR_TID(), false);
+            else break;
+        }
+        if (f != null) {
+            int tidOld = f.ALLOCATOR_TID();
+            EventHandler.replacement(tidOld, tid, i);
+            if (tidOld == tid) ThreadTask.currentThreadTask().clean(i);
+        }
+        frames[i] = new MemoryFrame(tid, true);
+        allocationHead = i;
         return i;
     }
 
     /**
-     * Simulates a synchronisation-requiring read/write operation on a given frame.
+     * Simulates a read/write operation on a given frame, performed by a thread under a critical section.
      *
      * @param frame frame identification.
+     * @param tid thread identification.
      */
-    public synchronized void operation(int frame, int tid) {
-        if (frame < 0 || frame > 1<<size) throw new IllegalArgumentException("Attempted operation on non-existent frame " + frame);
-        System.out.println("[" + tid + "] Operation on frame " + frame);
+    public synchronized void operation(int frame, int tid) throws OutdatedReference {
+        if (frame < 0 || frame > 1<< memorySize) throw new IllegalArgumentException("Attempted operation on non-existent frame " + frame);
+        if (frames[frame].ALLOCATOR_TID() != tid) throw new OutdatedReference();
+        EventHandler.operationSuccess(tid, frame);
     }
 
     public void printFrameStatus() {
-        for (boolean f : frames) if (f) System.out.print("1"); else System.out.print("0");
+        for (MemoryFrame f : frames) if (f != null) System.out.print("1"); else System.out.print("0");
     }
 }

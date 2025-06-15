@@ -4,6 +4,8 @@ public record PageTranslation(
         boolean present,
         int page,
         int frame,
+
+        // Other flags; ignored in this implementation.
         boolean readPerm,
         boolean writePerm,
         boolean noExecute
