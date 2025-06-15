@@ -1,6 +1,7 @@
 package org.example;
 
-import java.util.ArrayList;
+import javax.swing.*;
+import java.util.Map;
 
 public class Main {
     /* Prompt:
@@ -20,21 +21,20 @@ les a acceder (por ejemplo, 10, 11, 12, 13, 14 para un proceso, 30, 31, 32, 32, 
 
 
     public static void main(String[] args) throws InterruptedException {
-        Memory memory = new Memory(5);
-        ArrayList<ThreadTask> threadSet = new ArrayList<ThreadTask>();
-        threadSet.add(new ThreadTask(new int[]{2, 5, 6, 7}, memory, 0));
-        threadSet.add(new ThreadTask(new int[]{1, 5, 6, 2}, memory, 1));
-        threadSet.add(new ThreadTask(new int[]{5, 5, 6, 7}, memory, 2));
-        threadSet.add(new ThreadTask(new int[]{8, 4, 6, 1, 0}, memory, 3));
-        threadSet.add(new ThreadTask(new int[]{10, 11, 6, 6}, memory, 4));
+        Thread.currentThread().setName("Main");
+        ThreadSet threadSet = new ThreadSet();
+        Memory memory = new Memory(2);
+        threadSet.put(new int[]{1, 2, 3, 1}, memory, 0);
+        threadSet.put(new int[]{1, 2, 3, 1, 2}, memory, 1);
 
         System.out.print("");
 
-        for (ThreadTask t : threadSet) t.start();
+        threadSet.forEach((Integer tid, ThreadTask t) -> t.start());
+        for (Map.Entry<Integer, ThreadTask> t : threadSet.entrySet()) {
+            t.getValue().join();
+        }
 
-        Thread.sleep(100);
-        for (ThreadTask t : threadSet) t.printTable();
-        Thread.sleep(100);
+        threadSet.forEach((Integer tid, ThreadTask t) -> t.printTable());
         memory.printFrameStatus();
     }
 }
