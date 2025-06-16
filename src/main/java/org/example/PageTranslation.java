@@ -1,7 +1,6 @@
 package org.example;
 
 public record PageTranslation(
-        boolean present,
         int page,
         int frame,
 
@@ -11,6 +10,6 @@ public record PageTranslation(
         boolean noExecute
 ) {
     public PageTranslation(int page, int frame) {
-        this(true, page, frame, true, true, false);
+        this(page, frame, true, true, false);
     }
 }

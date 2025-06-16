@@ -1,6 +1,5 @@
 package org.example;
 
-import javax.swing.*;
 import java.util.Map;
 
 public class Main {
@@ -24,17 +23,17 @@ les a acceder (por ejemplo, 10, 11, 12, 13, 14 para un proceso, 30, 31, 32, 32, 
         Thread.currentThread().setName("Main");
         ThreadSet threadSet = new ThreadSet();
         Memory memory = new Memory(2);
-        threadSet.put(new int[]{1, 2, 3, 1}, memory, 0);
-        threadSet.put(new int[]{1, 2, 3, 1, 2}, memory, 1);
+        threadSet.put(new int[]{1, 2, 3, 1}, memory);
+        threadSet.put(new int[]{1, 2, 3, 1, 2}, memory);
 
         System.out.print("");
 
-        threadSet.forEach((Integer tid, ThreadTask t) -> t.start());
-        for (Map.Entry<Integer, ThreadTask> t : threadSet.entrySet()) {
+        threadSet.forEach((Long tid, ThreadTask t) -> t.start());
+        for (Map.Entry<Long, ThreadTask> t : threadSet.entrySet()) {
             t.getValue().join();
         }
 
-        threadSet.forEach((Integer tid, ThreadTask t) -> t.printTable());
+        threadSet.forEach((Long tid, ThreadTask t) -> t.printState());
         memory.printFrameStatus();
     }
 }

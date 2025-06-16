@@ -1,22 +1,21 @@
 package org.example;
 
+import java.util.Arrays;
+
 public class ThreadTask extends Thread {
     private final int[] accessSchedule;
     private final PageTable pageTable;
-    private final int tid;
 
     /**
      * Constructs a representation of a user task by the use of a JVM thread.
      *
      * @param accessSchedule array of page IDs of operation targets, in the order they are to be sent.
      * @param memory physical memory the task’s pages are allocated to.
-     * @param tid thread identifier.
      */
-    public ThreadTask(int[] accessSchedule, Memory memory, int tid) {
+    public ThreadTask(int[] accessSchedule, Memory memory) {
         this.accessSchedule = accessSchedule;
-        this.pageTable = new PageTable(memory, tid);
-        this.tid = tid;
-        this.setName("[" + tid + "]");
+        this.pageTable = new PageTable(memory, this);
+        this.setName("[" + this.threadId() + "]");
     }
 
     @Override
@@ -36,19 +35,19 @@ public class ThreadTask extends Thread {
             operation(page);
         } catch (OutdatedReference e) {
             clean(pageTable.get(page).frame());
+            pageTable.addTranslation(page);
+            operation(page);
         }
     }
 
     public void clean(int frame) {
-        int page = pageTable.get(frame).page();
-        EventHandler.clean(tid, page);
+        EventHandler.clean(this.threadId(), pageTable.getFromFrame(frame).page());
         pageTable.removeTranslation(frame);
-        pageTable.addTranslation(page);
     }
 
-    public static ThreadTask currentThreadTask() {
-        return (ThreadTask) Thread.currentThread();
+    public void printState() {
+        pageTable.printTable();
+        System.out.print(", schedule " + Arrays.toString(accessSchedule));
+        System.out.println();
     }
-
-    public void printTable() { pageTable.printTable(); }
 }

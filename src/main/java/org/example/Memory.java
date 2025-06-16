@@ -3,7 +3,7 @@ package org.example;
 public class Memory {
     private final int memorySize;
     private final MemoryFrame[] frames;
-    private int allocationHead;
+    private int allocationHand;
 
     /**
      * Constructs a representation of the physical memory, consisting of a given, power-of-two-amount of pages.
@@ -14,31 +14,37 @@ public class Memory {
     public Memory(int memorySize) {
         if (memorySize <= 0 || memorySize > 31) throw new IllegalArgumentException("Invalid memory size");
         this.memorySize = memorySize;
-        this.allocationHead = 0;
+        this.allocationHand = 0;
         this.frames = new MemoryFrame[1<<memorySize];
+    }
+
+    // Prevents race conditions on concurrent operation() and getFrame()
+    private synchronized void updateFrame(int frame, MemoryFrame value) {
+        frames[frame] = value;
     }
 
     /**
      * Allocates a frame for a thread, using the clock replacement algorithm on a global scope.
      *
-     *  @param tid thread identification.
+     * @param t allocating thread
      */
-    public synchronized int getFrame(int tid) {
+    public synchronized int getFrame(ThreadTask t) {
         MemoryFrame f;
         int i;
-        for (i = allocationHead; ; i = (i + 1) % (1 << memorySize)) {
+        for (i = allocationHand; ; i = (i + 1) % (1 << memorySize)) {
             f = frames[i];
             if (frames[i] == null) break;
-            if (f.CLOCK_SECOND_CHANCE()) frames[i] = new MemoryFrame(f.ALLOCATOR_TID(), false);
+            if (f.clockSecondChance()) updateFrame(i, new MemoryFrame(f.allocatorTid(), false));
             else break;
         }
         if (f != null) {
-            int tidOld = f.ALLOCATOR_TID();
-            EventHandler.replacement(tidOld, tid, i);
-            if (tidOld == tid) ThreadTask.currentThreadTask().clean(i);
+            long tidOld = f.allocatorTid();
+            EventHandler.replacement(tidOld, t.threadId(), i);
+            if (tidOld == t.threadId()) t.clean(i);
         }
-        frames[i] = new MemoryFrame(tid, true);
-        allocationHead = i;
+        updateFrame(i, new MemoryFrame(t.threadId(), true));
+
+        allocationHand = i;
         return i;
     }
 
@@ -48,9 +54,11 @@ public class Memory {
      * @param frame frame identification.
      * @param tid thread identification.
      */
-    public synchronized void operation(int frame, int tid) throws OutdatedReference {
+    public synchronized void operation(int frame, long tid) throws OutdatedReference {
         if (frame < 0 || frame > 1<< memorySize) throw new IllegalArgumentException("Attempted operation on non-existent frame " + frame);
-        if (frames[frame].ALLOCATOR_TID() != tid) throw new OutdatedReference();
+        MemoryFrame f = frames[frame];
+        if (f.allocatorTid() != tid) throw new OutdatedReference();
+        if (!f.clockSecondChance()) updateFrame(frame, new MemoryFrame(f.allocatorTid(), true));
         EventHandler.operationSuccess(tid, frame);
     }
 
